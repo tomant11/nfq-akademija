@@ -1,0 +1,2 @@
+25 8-19 * * 1/2 bash /home/vartotojas/archiver.sh 2> /tmp/archiver_error.log
+* 1 * * *  bash /home/vartotojas/eraser.sh 2> /tmp/eraser_error.log
