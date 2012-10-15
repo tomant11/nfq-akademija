@@ -8,10 +8,6 @@ BASEDIR=$(dirname $0)
 WORKDIR=$BASEDIR/log/${data}
 LOGFILE=/var/log/apache2/access.log
 
-  LOGFILE=/tmp/test.log
-# echo $WORKDIR
-# echo $data $val $min
-
 if [ ! -d $BASEDIR/log ]
  then 
   mkdir $BASEDIR/log
