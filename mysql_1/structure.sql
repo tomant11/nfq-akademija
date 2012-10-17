@@ -87,6 +87,23 @@ CREATE  TABLE IF NOT EXISTS `library`.`Copies` (
 ENGINE = MyISAM;
 
 
+-- -----------------------------------------------------
+-- Placeholder table for view `library`.`view_empty_locations`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `library`.`view_empty_locations` (`locationId` INT, `code` INT);
+
+-- -----------------------------------------------------
+-- View `library`.`view_empty_locations`
+-- -----------------------------------------------------
+DROP VIEW IF EXISTS `library`.`view_empty_locations` ;
+DROP TABLE IF EXISTS `library`.`view_empty_locations`;
+USE `library`;
+CREATE  OR REPLACE VIEW `library`.`view_empty_locations` AS
+SELECT l.* 
+FROM Locations l
+LEFT JOIN Copies c ON (c.locationId = l.locationId)
+WHERE c.locationId IS NULL;
+
 
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
