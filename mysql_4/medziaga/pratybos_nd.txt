@@ -1,0 +1,30 @@
+ND ir pratybos
+
+
+Prekes (prekeId, pavadinimas, grupeId, gamintojasId, kaina, likutis sandelyje, aprasymas)
+Gamintojai(gamintojas, pavadinimas)
+Grupes (grupeid, padavinimas)
+
+
+
+
+tiriamos uzklausos:
+paieskoti pagal raktinius zodzius
+grupiu saras su prekiu kiekiu
+prekiu sarasas su sudetingom taisyklem
+
+
+patestuoti kiek trunka insert, update, ir delete
+be index, su index
+
+
+
+
+kiekiai: 100, 10.000, 100.000, 1.000.000
+
+sql skriptas pries indeksavima
+sql skriptas po indeksavimo
+sql su 100.000 prekiu dampu
+
+xls su greitaveika
+
