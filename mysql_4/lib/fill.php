@@ -46,14 +46,16 @@ class Importer
     
     public function importProducts($limit = 1)
     {
-        $sql="SELECT m.id, m.slug
+        $sql="SELECT SQL_CALC_FOUND_ROWS m.id, m.slug
             FROM `manufacturer` m
             LEFT OUTER JOIN product p ON (m.id = p.manufacturer_id)
             WHERE p.manufacturer_id IS NULL
             LIMIT :limit
         ";
         $list = R::getAll($sql, array('limit'=>$limit));
-
+        $total = R::getCell('SELECT FOUND_ROWS();');
+        print 'Manufacturers left: '.$total;
+        
         /*
         $content = file_get_contents('tmp.txt');
         $plugin = new MockPlugin();
@@ -93,11 +95,10 @@ class Importer
             }
             
             print '.';
-            sleep(4);
         }
     }
 }
 
 $i = new Importer;
 //$i->importManufacturers();
-$i->importProducts(50);
+$i->importProducts(100);
