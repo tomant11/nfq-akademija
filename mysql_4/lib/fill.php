@@ -23,9 +23,9 @@ class Importer
     
     public function __construct() {
         require_once('rb.php');
-        R::setup('mysql:host=192.168.128.95;dbname=catalog','root','12345');
+        R::setup('mysql:host=192.168.128.97;dbname=catalog','public','public');
         R::freeze( true );
-
+        
         require_once 'goutte.phar';
         $this->_goutte = new Client();
     }
@@ -72,34 +72,144 @@ class Importer
             $crawler = $this->_goutte->request('GET', $url);
             $nodes = $crawler->filter('.s-productthumbbox');
             foreach($nodes as $node) {
-
-                $doc = $node->ownerDocument;
-                $doc->preserveWhiteSpace = false;
-                $xpath     = new DOMXPath($doc);
-                
-                $title = trim($xpath->query(".//p[@class='productdescription']", $node)->item(0)->textContent);
-                $image = $xpath->query(".//img", $node)->item(0)->getAttribute('src');
-                $price = $xpath->query(".//span", $node)->item(0)->textContent;
-                $price = preg_replace('/[^\d\.]+/', '', $price);
-                
-                $p = R::dispense('product');
-//                $p->group_id = rand(1, 10);
-                $p->manufacturer_id = $m['id'];
-                $p->title = $title;
-                $p->description = '';
-                $p->price = $price;
-                $p->stock = rand(1, 1000);
-                $p->image = $image;
-                $p->created_at = date('c');
-                $p->updated_at = date('c');
-                R::store($p);
+                $this->_importSDNode($node);
             }
-            
             print '.';
         }
+    }
+    
+    private function _importSDNode($node)
+    {
+        $xpath     = new DOMXPath($node->ownerDocument);
+
+        $title = trim($xpath->query(".//p[@class='productdescription']", $node)->item(0)->textContent);
+        $image = $xpath->query(".//img", $node)->item(0)->getAttribute('src');
+        $price = $xpath->query(".//span", $node)->item(0)->textContent;
+        $price = preg_replace('/[^\d\.]+/', '', $price);
+
+        $p = R::dispense('product');
+        $p->manufacturer_id = $m['id'];
+        $p->title = $title;
+        $p->description = '';
+        $p->price = $price;
+        $p->stock = rand(1, 1000);
+        $p->image = $image;
+        $p->created_at = date('c');
+        $p->updated_at = date('c');
+        R::store($p);
+    }
+    
+    public function importDx($case = 'products')
+    {
+        if($case == 'categories') {
+            $file = '/tmp/dx.txt';
+            $html = file_get_contents($file);
+
+            $dom = new DOMDocument();
+            $dom->loadHTML($html);
+
+            $categories = array();
+            $xpath     = new DOMXPath($dom);
+            $nodes = $xpath->query("//dl[@class='submenu']/dd/a");
+            foreach($nodes as $i => $node) {
+                $url = $node->getAttribute('href').'?pageSize=200';
+                $page = $this->_getUrl($url.'&page=1', true);
+
+                $ndom = new DOMDocument();
+                $ndom->loadHTML($page);
+                $nxpath     = new DOMXPath($ndom);
+                $pages = $nxpath->query("//span[@class='pageCount']")->item(0)->textContent;
+                unset($ndom, $nxpath);
+
+                $categories[] = array(
+                    'title' => 'DealExtreme - ' . $node->textContent,
+                    'href'  => $url,
+                    'pages'  => $pages,
+                );
+            }
+            file_put_contents('/tmp/dx_categories.json', json_encode($categories));
+        }
+        
+        if($case == 'products') {
+            $categories = json_decode(file_get_contents('/tmp/dx_categories.json'), true);
+            foreach($categories as $cat) {
+                $cid = $this->_getDxCatId($cat);
+                $page = 1;
+                $pages = $cat['pages'];
+                while ($pages-- > 0) {
+                    $url = $cat['href'] .'&page='.$page;
+                    
+                    $html = $this->_getUrl($url, true);
+                    $ndom = new DOMDocument();
+                    $ndom->loadHTML($html);
+                    $nxpath     = new DOMXPath($ndom);
+                    $nodes = $nxpath->query("//div[@id='proList']/ul/li");
+                    foreach($nodes as $pnode) {
+                        $pxpath     = new DOMXPath($pnode->ownerDocument);
+                        $price = $pxpath->query(".//div[@class='po']/p[@class='np']/span", $pnode)->item(0)->textContent;
+                        $price = preg_replace('/[^\d\.]+/', '', $price);
+                        $title = $pxpath->query(".//p[@class='title']/a", $pnode)->item(0)->textContent;
+                        $image = $pxpath->query(".//img[@class='lazy']", $pnode)->item(0)->getAttribute('data-src');
+                        
+                        $p = R::dispense('product');
+                        $p->category_id = $cid;
+                        $p->title = $title;
+                        $p->description = $title;
+                        $p->price = $price;
+                        $p->stock = rand(1, 1000);
+                        $p->image = $image;
+                        $p->created_at = date('c');
+                        $p->updated_at = date('c');
+                        R::store($p);
+                        
+                        print '.';
+                    }
+                    
+                    unset($ndom, $nxpath, $html, $nodes);
+                    $page++; 
+                    print PHP_EOL;
+                }
+                print '/';
+            }
+        }
+    }
+    
+    private function _getDxCatId($cat)
+    {
+        $id = R::getCell('SELECT id FROM category WHERE title = :title', array('title'=>$cat['title']));
+        if(!$id) {
+            $c = R::dispense('category');
+            $c->title = $cat['title'];
+            $c->created_at = date('c');
+            $c->updated_at = date('c');
+            R::store($c);
+            $id = $c->id;
+        }
+        return $id;
+    }
+    
+    private function _getUrl($url, $from_cache = false)
+    {
+        
+        $filename = '/tmp/dx_'.md5($url);
+        if($from_cache && file_exists($filename)) {
+            return file_get_contents($filename);
+        }
+        
+        $ch = curl_init();
+        $timeout = 5;
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
+        $data = curl_exec($ch);
+        curl_close($ch);
+        
+        file_put_contents($filename, $data);
+        
+        return $data;
     }
 }
 
 $i = new Importer;
-//$i->importManufacturers();
-$i->importProducts(100);
+$i->importDx('categories');
+//$i->importDx('products');
