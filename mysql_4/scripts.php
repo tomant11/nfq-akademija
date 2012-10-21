@@ -2,21 +2,21 @@
 
 $sql="
     SELECT *
-    FROM Prekes
-    WHERE pavadinimas LIKE :search OR aprasymas LIKE :search
-    ORDER BY prekeId DESC
+    FROM product
+    WHERE title LIKE :search OR description LIKE :search
+    ORDER BY id DESC
 ";
 
 $sql="
-    SELECT g.grupeId, g.pavadinimas, COUNT(p.prekeId)
-    FROM Grupes g
-        LEFT JOIN Prekes p ON (p.grupeId = g.grupeId)
-    GROUP BY g.grupeID
+    SELECT group.id, group.title, COUNT(product.id)
+    FROM group
+        LEFT JOIN product ON (product.id = group.id)
+    GROUP BY group.id
 ";
 
 $sql="
-    SELECT p.*, g.*,
-    FROM Prekes g
-        LEFT JOIN Grupes p ON (p.grupeId = g.grupeId)
-    GROUP BY g.grupeID
+    SELECT product.*, group.*,
+    FROM product
+        LEFT JOIN group ON (product.id = group.id)
+    GROUP BY group.id
 ";
