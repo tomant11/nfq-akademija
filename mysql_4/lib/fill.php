@@ -65,9 +65,10 @@ class Importer
         $this->_goutte = new Client();
         $this->_goutte->setClient($guzzle);
         */
+        $page = 1;
         
         foreach ($list as $m) {
-            $url = 'http://www.sportsdirect.com/'.$m['slug'].'/?mppp=true';
+            $url = 'http://www.sportsdirect.com/'.$m['slug'].'/?mppp=true&mcp='.$page;
             $crawler = $this->_goutte->request('GET', $url);
             $nodes = $crawler->filter('.s-productthumbbox');
             foreach($nodes as $node) {

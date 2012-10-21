@@ -8,15 +8,15 @@ $sql="
 ";
 
 $sql="
-    SELECT group.id, group.title, COUNT(product.id)
-    FROM group
-        LEFT JOIN product ON (product.id = group.id)
-    GROUP BY group.id
+    SELECT category.id, category.title, COUNT(product.id)
+    FROM category
+        LEFT JOIN product ON (product.id = category.id)
+    GROUP BY category.id
 ";
 
 $sql="
-    SELECT product.*, group.*,
+    SELECT product.*, category.*,
     FROM product
-        LEFT JOIN group ON (product.id = group.id)
-    GROUP BY group.id
+        LEFT JOIN category ON (product.id = category.id)
+    GROUP BY category.id
 ";
