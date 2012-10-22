@@ -30,6 +30,66 @@ class Importer
         $this->_goutte = new Client();
     }
 
+    public function importOverstock($case = 'categories')
+    {
+        $catfile = '/tmp/overstock_categories.txt';
+        if($case == 'categories') {
+            $pagefile = '/tmp/overstock_sitemap.txt';
+            if(!file_exists($pagefile)) {
+                $html = $this->_getUrl('http://www.overstock.com/sitemap');
+                file_put_contents($pagefile, $html);
+            }
+            
+            $dom = new DOMDocument();
+            $dom->loadHTMLFile($pagefile);
+            $categories = array();
+            $xpath = new DOMXPath($dom);
+            $nodes = $xpath->query("//li[@class='bullet3']/a");
+            foreach ($nodes as $node) {
+                $categories[] = array(
+                    'title' => 'Overstock - ' . $node->textContent,
+                    'href'  => $node->getAttribute('href'),
+                );
+            }
+            file_put_contents($catfile, json_encode($categories));
+        }
+        
+        if($case == 'products') {
+            $categories = json_decode(file_get_contents($catfile), true);
+            foreach($categories as $cat) {
+                $cid = $this->_getDxCatId($cat);
+                $html = $this->_getUrl($cat['href'], true);
+                $ndom = new DOMDocument();
+                $ndom->loadHTML($html);
+                $nxpath     = new DOMXPath($ndom);
+                $nodes = $nxpath->query("//div[@class='product-content']");
+                
+                foreach($nodes as $pnode) {
+                    
+                    $pxpath     = new DOMXPath($pnode->ownerDocument);
+                    $price = $pxpath->query(".//span[@class='you-save']/strong", $pnode)->item(0)->textContent;
+                    $price = preg_replace('/[^\d\.]+/', '', $price);
+                    $title = $pxpath->query(".//span[@class='pro-name']", $pnode)->item(0)->textContent;
+                    $image = $pxpath->query(".//a[@class='pro-thumb']/img", $pnode)->item(0)->getAttribute('src');
+
+                    $p = R::dispense('product');
+                    $p->category_id = $cid;
+                    $p->title = $title;
+                    $p->price = $price;
+                    $p->stock = rand(1, 1000);
+                    $p->image = $image;
+                    $p->created_at = date('c');
+                    $p->updated_at = date('c');
+                    R::store($p);
+
+                    print '.';
+                }
+                
+                print '/';
+            }
+        }
+    }
+    
     public function importManufacturers()
     {
         $crawler = $this->_goutte->request('GET', 'http://www.sportsdirect.com/brands');
@@ -198,18 +258,28 @@ class Importer
         
         $ch = curl_init();
         $timeout = 5;
+        $userAgent = 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; .NET CLR 1.1.4322)';
+        curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_FAILONERROR, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_AUTOREFERER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+
         $data = curl_exec($ch);
+        if($data === false) {
+            throw new Exception(curl_error($ch));
+        }
         curl_close($ch);
-        
         file_put_contents($filename, $data);
-        
         return $data;
     }
 }
 
 $i = new Importer;
-$i->importDx('categories');
+//$i->importOverstock('categories');
+$i->importOverstock('products');
+//$i->importDx('categories');
 //$i->importDx('products');
